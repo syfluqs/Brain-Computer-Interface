@@ -1,0 +1,55 @@
+Configuration	ADC_sampling
+STM32CubeMX 	4.23.0
+Date	11/01/2017
+MCU	STM32F103C8Tx
+
+
+
+PERIPHERALS	MODES	FUNCTIONS	PINS
+ADC1	IN0	ADC1_IN0	PA0-WKUP
+ADC1	IN1	ADC1_IN1	PA1
+ADC1	Single-ended	ADC1_TempSens_Input	VP_ADC1_TempSens_Input
+ADC1	Vrefint Channel	ADC1_Vref_Input	VP_ADC1_Vref_Input
+SYS	No Debug	SYS_VS_ND	VP_SYS_VS_ND
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+TIM1	Internal Clock	TIM1_VS_ClockSourceINT	VP_TIM1_VS_ClockSourceINT
+TIM1	Output Compare CH1	TIM1_CH1	PA8
+USART1	Asynchronous	USART1_RX	PA10
+USART1	Asynchronous	USART1_TX	PA9
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+10	PA0-WKUP	ADC1_IN0	
+11	PA1	ADC1_IN1	
+29	PA8	TIM1_CH1	
+30	PA9	USART1_TX	
+31	PA10	USART1_RX	
+
+
+
+SOFTWARE PROJECT
+
+Project Settings : 
+Project Name : ADC_sampling
+Project Folder : C:\Users\roy\Desktop\ADC_sampling
+Toolchain / IDE : EWARM
+Firmware Package Name and Version : STM32Cube FW_F1 V1.6.0
+
+
+Code Generation Settings : 
+STM32Cube Firmware Library Package : Copy all used libraries into the project folder
+Generate peripheral initialization as a pair of '.c/.h' files per peripheral : No
+Backup previously generated files when re-generating : No
+Delete previously generated files when not re-generated : Yes
+Set all free pins as analog (to optimize the power consumption) : No
+
+
+Toolchains Settings : 
+Compiler Optimizations : Balanced Size/Speed
+
+
+
+
+
+
