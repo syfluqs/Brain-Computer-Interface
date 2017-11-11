@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/Users/roy/Desktop/ADC_sampling/Inc
+HeaderPath=C:/Users/roy/Desktop/major_proj/Stage_2__ADC_sampling/Inc
 HeaderFiles=stm32f1xx_it.h;stm32f1xx_hal_conf.h;main.h;
-SourcePath=C:/Users/roy/Desktop/ADC_sampling/Src
+SourcePath=C:/Users/roy/Desktop/major_proj/Stage_2__ADC_sampling/Src
 SourceFiles=stm32f1xx_it.c;stm32f1xx_hal_msp.c;main.c;
 
 [PreviousLibFiles]

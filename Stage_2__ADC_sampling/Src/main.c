@@ -53,6 +53,12 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+#define ADC_BUFFER_SIZE 3
+#define UART_TX_BUFFER_SIZE 6
+__IO uint16_t  aADCxConvertedValues[ADC_BUFFER_SIZE];
+__IO uint8_t uart_tx_buffer[UART_TX_BUFFER_SIZE];
+__IO uint8_t uart_rx_buffer;
+
 
 /* USER CODE END PV */
 
@@ -105,7 +111,22 @@ int main(void)
   MX_TIM1_Init();
 
   /* USER CODE BEGIN 2 */
-
+  
+  /** Calibrating ADC */
+  if (HAL_ADCEx_Calibration_Start(&hadc1) != HAL_OK) {
+    /* Calibration Error */
+    Error_Handler();
+  }
+  
+  /** ADC start conversion */
+  /* Start ADC conversion on regular group with transfer by DMA */
+  if (HAL_ADC_Start_DMA(&hadc1,
+                        (uint32_t *)aADCxConvertedValues,
+                        ADC_BUFFER_SIZE) != HAL_OK) {
+    /* Start Error */
+    Error_Handler();
+  }
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -115,7 +136,13 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-
+   HAL_ADC_Start(&hadc1);
+    
+   /* Wait for conversion completion before conditional check hereafter */
+   HAL_ADC_PollForConversion(&hadc1, 1);
+  
+  
+  
   }
   /* USER CODE END 3 */
 
@@ -125,7 +152,6 @@ int main(void)
 */
 void SystemClock_Config(void)
 {
-  
 
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
@@ -219,7 +245,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 0;
+  htim1.Init.Period = 10000;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -286,6 +312,11 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.Mode = UART_MODE_TX_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  // configure UART buffers
+  huart1.pTxBuffPtr = &uart_tx_buffer;
+  huart1.pRxBuffPtr = &uart_rx_buffer;
+  huart1.TxXferSize = (uint16_t)UART_TX_BUFFER_SIZE;
+  huart1.RxXferSize = (uint16_t)1;
   if (HAL_UART_Init(&huart1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
