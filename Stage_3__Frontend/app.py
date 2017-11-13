@@ -1,13 +1,15 @@
 import sys
 import serial
 import threading
-import matplotlib.pyplot as plt
-import numpy as np
 import logging
+import numpy as np
+from matplotlib.lines import Line2D
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 config = {
     'baud_rate' : 115200,
-    'sample_time_period' : 100
+    'sample_time_period' : 1
 }
 
 ch0_read = 0
@@ -15,6 +17,42 @@ ch1_read = 0
 ser = None
 temp = None
 com_port = None
+
+class Scope(object):
+    def __init__(self, ax, maxt=0.025, dt=0.00005):
+        self.ax = ax
+        self.dt = dt
+        self.maxt = maxt
+        self.tdata = [0]
+        self.ydata = [0]
+        self.line = Line2D(self.tdata, self.ydata)
+        self.ax.add_line(self.line)
+        self.ax.set_ylim(0, 4096)
+        self.ax.set_xlim(0, self.maxt)
+
+    def update(self, y):
+        lastt = self.tdata[-1]
+        if lastt > self.tdata[0] + self.maxt:  # reset the arrays
+            self.tdata = [self.tdata[-1]]
+            self.ydata = [self.ydata[-1]]
+            self.ax.set_xlim(self.tdata[0], self.tdata[0] + self.maxt)
+            self.ax.figure.canvas.draw()
+
+        t = self.tdata[-1] + self.dt
+        self.tdata.append(t)
+        self.ydata.append(y)
+        self.line.set_data(self.tdata, self.ydata)
+        return self.line,
+
+
+def emitter(p=0.03):
+    global ch0_read, ch1_read
+    while True:
+        yield ch1_read
+
+
+fig, ax = plt.subplots()
+scope = Scope(ax)
 
 logging.basicConfig(level=logging.DEBUG,format='[%(levelname)s] (%(threadName)-10s) %(message)s',)
 
@@ -26,7 +64,6 @@ def serial_init():
     # Set sampling time period
     ser.write(int((config['sample_time_period']-1)/4).to_bytes(1,byteorder='big'))
 
-hl, = plt.plot([], [])
 
 def plt_dynamic(x, y, ax, colors=['b']):
     for color in colors:
@@ -38,16 +75,12 @@ def serial_worker():
     global ser
     global temp
     global ch0_read, ch1_read
+    while (ser.read()!=b'}'):
+            pass
     while (1):
-        while (ser.read()!=b'{'):
-            pass
-        temp = ser.read(2)
-        ch0_read = temp[0] + 16*temp[1]
-        while (ser.read() != b','):
-            pass
-        temp = ser.read(2)
-        ch1_read = temp[0] + 16*temp[1]
-
+        temp = list(ser.read(7))
+        ch0_read = int(temp[2]) + 256*int(temp[1])
+        ch1_read = int(temp[5]) + 256*int(temp[4])
 
 if __name__=="__main__":
 
@@ -64,10 +97,14 @@ if __name__=="__main__":
         serial_thread.setName('serial_worker')
         serial_thread.start()
 
-        fig,ax = plt.subplots(1,1)
-        ax.set_xlabel('X') ; ax.set_ylabel('Y')
-        ax.set_xlim(0,360) ; ax.set_ylim(-1,1)
-        xs, ys = [], []
+        ani = animation.FuncAnimation(fig, scope.update, emitter, interval=100,blit=True)
+
+
+        plt.show()
+        # while (1) :
+            # print(temp,ch0_read,ch1_read)
+            # pass
+
 
     except KeyboardInterrupt:
         # quit
