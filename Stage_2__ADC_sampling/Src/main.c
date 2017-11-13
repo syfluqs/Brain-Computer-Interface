@@ -54,11 +54,17 @@ UART_HandleTypeDef huart1;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 #define ADC_BUFFER_SIZE 3
-#define UART_TX_BUFFER_SIZE 6
-__IO uint16_t  aADCxConvertedValues[ADC_BUFFER_SIZE];
-__IO uint8_t uart_tx_buffer[UART_TX_BUFFER_SIZE];
-__IO uint8_t uart_rx_buffer;
+#define UART_TX_BUFFER_SIZE 7
+uint32_t  aADCxConvertedValues[ADC_BUFFER_SIZE];
+uint8_t uart_tx_buffer[UART_TX_BUFFER_SIZE];
+uint8_t uart_rx_buffer;
+uint16_t time_period = 100;
+#define adc_no_of_conversions 3
+uint32_t adc_channels_to_scan[adc_no_of_conversions] = {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_VREFINT};
+uint32_t adc_conversion_period = 1000;
+uint32_t ch0_read, ch1_read;
 
+ADC_ChannelConfTypeDef sConfig;
 
 /* USER CODE END PV */
 
@@ -120,29 +126,64 @@ int main(void)
   
   /** ADC start conversion */
   /* Start ADC conversion on regular group with transfer by DMA */
-  if (HAL_ADC_Start_DMA(&hadc1,
-                        (uint32_t *)aADCxConvertedValues,
-                        ADC_BUFFER_SIZE) != HAL_OK) {
-    /* Start Error */
-    Error_Handler();
-  }
   
+  uart_tx_buffer[0] = '{';
+  uart_tx_buffer[3] = ',';
+  uart_tx_buffer[6] = '}';
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+   
   while (1)
   {
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-   HAL_ADC_Start(&hadc1);
+//   HAL_ADC_Start(&hadc1);
+//    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+    int i;
+    for (i=0;i<adc_no_of_conversions;i++) {
+      if (HAL_ADC_Init(&hadc1) != HAL_OK)
+      {
+        _Error_Handler(__FILE__, __LINE__);
+      }
+      sConfig.Channel = adc_channels_to_scan[i];
+      if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+      {
+        _Error_Handler(__FILE__, __LINE__);
+      }
+      
+      HAL_ADC_Start(&hadc1);
+      if (HAL_ADC_PollForConversion(&hadc1, 1000) == HAL_OK)
+      {
+          aADCxConvertedValues[i] = HAL_ADC_GetValue(&hadc1);
+      }
+      HAL_Delay(adc_conversion_period/adc_no_of_conversions);
+      // ADC Deinit for stable readings of VRefInt
+      HAL_ADC_DeInit(&hadc1);
+    }
+    ch0_read = (uint32_t)((1212.0 * ((double)aADCxConvertedValues[0]/ 1000.0) * 1250.0) / aADCxConvertedValues[2]);
+    ch1_read = (uint32_t)((1212.0 * ((double)aADCxConvertedValues[1]/ 1000.0) * 1250.0) / aADCxConvertedValues[2]);
     
-   /* Wait for conversion completion before conditional check hereafter */
-   HAL_ADC_PollForConversion(&hadc1, 1);
+    if (ch0_read>4095) {ch0_read = 4095;}
+    if (ch1_read>4095) {ch1_read = 4095;}
+    
+    if (ch1_read<1000) {
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    }
+    
+    uart_tx_buffer[1] = ch0_read >> 8;
+    uart_tx_buffer[2] = ch0_read;
+    uart_tx_buffer[4] = ch1_read >> 8;
+    uart_tx_buffer[5] = ch1_read;
   
   
-  
+    HAL_UART_Transmit(&huart1, &uart_tx_buffer[0], UART_TX_BUFFER_SIZE, 1000);
+    HAL_UART_Receive_IT(&huart1, &uart_rx_buffer, 1);
+    
   }
   /* USER CODE END 3 */
 
@@ -205,13 +246,13 @@ void SystemClock_Config(void)
 static void MX_ADC1_Init(void)
 {
 
-  ADC_ChannelConfTypeDef sConfig;
+//  ADC_ChannelConfTypeDef sConfig;
 
     /**Common config 
     */
   hadc1.Instance = ADC1;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
@@ -223,13 +264,31 @@ static void MX_ADC1_Init(void)
 
     /**Configure Regular Channel 
     */
-  sConfig.Channel = ADC_CHANNEL_0;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    _Error_Handler(__FILE__, __LINE__);
-  }
+//  sConfig.Channel = ADC_CHANNEL_0;
+//  sConfig.Rank = 1;
+//  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
+//
+//    /**Configure Regular Channel 
+//    */
+//  sConfig.Channel = ADC_CHANNEL_1;
+//  sConfig.Rank = 2;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
+//
+//    /**Configure Regular Channel 
+//    */
+//  sConfig.Channel = ADC_CHANNEL_VREFINT;
+//  sConfig.Rank = 3;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    _Error_Handler(__FILE__, __LINE__);
+//  }
 
 }
 
@@ -312,11 +371,6 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.Mode = UART_MODE_TX_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  // configure UART buffers
-  huart1.pTxBuffPtr = &uart_tx_buffer;
-  huart1.pRxBuffPtr = &uart_rx_buffer;
-  huart1.TxXferSize = (uint16_t)UART_TX_BUFFER_SIZE;
-  huart1.RxXferSize = (uint16_t)1;
   if (HAL_UART_Init(&huart1) != HAL_OK)
   {
     _Error_Handler(__FILE__, __LINE__);
@@ -324,13 +378,25 @@ static void MX_USART1_UART_Init(void)
 
 }
 
-/** Pinout Configuration
+/** Configure pins as 
+        * Analog 
+        * Input 
+        * Output
+        * EVENT_OUT
+        * EXTI
 */
 static void MX_GPIO_Init(void)
 {
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  
+  GPIO_InitTypeDef GPIO_InitStruct;
+
+  GPIO_InitStruct.Pin = GPIO_PIN_13;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 }
 
