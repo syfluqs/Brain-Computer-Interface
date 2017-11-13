@@ -36,12 +36,12 @@
 #include "stm32f1xx_it.h"
 
 /* USER CODE BEGIN 0 */
-
+extern uint32_t adc_conversion_period;
+extern uint32_t uart_rx_buffer;
+uint8_t uart_rx_flag = 0;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern ADC_HandleTypeDef hadc1;
-extern TIM_HandleTypeDef htim1;
 extern UART_HandleTypeDef huart1;
 
 /******************************************************************************/
@@ -187,44 +187,23 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-* @brief This function handles ADC1 and ADC2 global interrupts.
-*/
-void ADC1_2_IRQHandler(void)
-{
-  /* USER CODE BEGIN ADC1_2_IRQn 0 */
-
-  /* USER CODE END ADC1_2_IRQn 0 */
-  HAL_ADC_IRQHandler(&hadc1);
-  /* USER CODE BEGIN ADC1_2_IRQn 1 */
-
-  /* USER CODE END ADC1_2_IRQn 1 */
-}
-
-/**
-* @brief This function handles TIM1 update interrupt.
-*/
-void TIM1_UP_IRQHandler(void)
-{
-  /* USER CODE BEGIN TIM1_UP_IRQn 0 */
-
-  /* USER CODE END TIM1_UP_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim1);
-  /* USER CODE BEGIN TIM1_UP_IRQn 1 */
-
-  /* USER CODE END TIM1_UP_IRQn 1 */
-}
-
-/**
 * @brief This function handles USART1 global interrupt.
 */
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
-
+  if ( huart1.RxXferCount > 0 ) {
+    // bit is received 
+    uart_rx_flag = 1;
+  }
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */
-
+  if (uart_rx_flag) {
+    adc_conversion_period = 1+((uint32_t)uart_rx_buffer & (~0x100))*4;
+    uart_rx_flag = 0;
+  }
+  
   /* USER CODE END USART1_IRQn 1 */
 }
 
