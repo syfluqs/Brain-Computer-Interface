@@ -6,10 +6,11 @@ import numpy as np
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from pyautogui import press
 
 config = {
     'baud_rate' : 115200,
-    'sample_time_period' : 1
+    'sample_time_period' : 10
 }
 
 ch0_read = 0
@@ -17,6 +18,9 @@ ch1_read = 0
 ser = None
 temp = None
 com_port = None
+pressed = 0
+
+threshold = 1000
 
 class Scope(object):
     def __init__(self, ax, maxt=0.025, dt=0.00005):
@@ -47,8 +51,9 @@ class Scope(object):
 
 def emitter(p=0.03):
     global ch0_read, ch1_read
+
     while True:
-        yield ch1_read
+        yield ch0_read
 
 
 fig, ax = plt.subplots()
@@ -75,12 +80,19 @@ def serial_worker():
     global ser
     global temp
     global ch0_read, ch1_read
+    global pressed
     while (ser.read()!=b'}'):
             pass
     while (1):
         temp = list(ser.read(7))
         ch0_read = int(temp[2]) + 256*int(temp[1])
         ch1_read = int(temp[5]) + 256*int(temp[4])
+        if (ch0_read < threshold and not pressed):
+            pressed = 1
+            press(' ')
+            print("pressed")
+        if (ch0_read > threshold and pressed):
+            pressed = 0
 
 if __name__=="__main__":
 
