@@ -37,8 +37,9 @@
 
 /* USER CODE BEGIN 0 */
 extern uint32_t adc_conversion_period;
-extern uint32_t uart_rx_buffer;
+extern uint8_t uart_rx_buffer;
 uint8_t uart_rx_flag = 0;
+extern uint8_t toggled;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -202,6 +203,9 @@ void USART1_IRQHandler(void)
   if (uart_rx_flag) {
     adc_conversion_period = 1+((uint32_t)uart_rx_buffer & (~0x100))*4;
     uart_rx_flag = 0;
+    if (uart_rx_buffer==0x7A) {
+      toggled = 1;
+    }
   }
   
   /* USER CODE END USART1_IRQn 1 */

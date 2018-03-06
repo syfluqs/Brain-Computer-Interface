@@ -63,6 +63,7 @@ uint16_t time_period = 100;
 uint32_t adc_channels_to_scan[adc_no_of_conversions] = {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_VREFINT};
 uint32_t adc_conversion_period = 1000;
 uint32_t ch0_read, ch1_read;
+uint8_t toggled = 0;
 
 ADC_ChannelConfTypeDef sConfig;
 
@@ -171,18 +172,27 @@ int main(void)
     if (ch0_read>4095) {ch0_read = 4095;}
     if (ch1_read>4095) {ch1_read = 4095;}
     
-    if (ch1_read<1000) {
-      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    }
-    
     uart_tx_buffer[1] = ch0_read >> 8;
     uart_tx_buffer[2] = ch0_read;
     uart_tx_buffer[4] = ch1_read >> 8;
     uart_tx_buffer[5] = ch1_read;
-  
+    
+    if (toggled) {
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+      toggled = 0;
+    }
+    
   
     HAL_UART_Transmit(&huart1, &uart_tx_buffer[0], UART_TX_BUFFER_SIZE, 1000);
     HAL_UART_Receive_IT(&huart1, &uart_rx_buffer, 1);
+    
+//    if (ch0_read < 400 && !toggled) {
+//      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13/*, GPIO_PIN_SET*/);
+//      toggled = 1;
+//    } else if (ch0_read > 400 && toggled) {
+//      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13/*, GPIO_PIN_RESET*/);
+//      toggled = 0;
+//    }
     
   }
   /* USER CODE END 3 */
@@ -390,13 +400,20 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  
-  GPIO_InitTypeDef GPIO_InitStruct;
+    GPIO_InitTypeDef GPIO_InitStruct;
 
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PC14 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
 
 }
 

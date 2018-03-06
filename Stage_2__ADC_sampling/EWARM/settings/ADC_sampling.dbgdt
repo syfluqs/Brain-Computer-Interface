@@ -986,7 +986,7 @@
                     <item>uart_rx_buffer</item>
                     <item>adc_conversion_period</item>
                     <item>aADCxConvertedValues</item>
-                    <item></item>
+                    <item />
                 </expressions>
                 <col-names>
                     <item>Expression</item>
