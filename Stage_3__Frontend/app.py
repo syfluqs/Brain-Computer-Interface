@@ -7,6 +7,7 @@ from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from pyautogui import press
+import random, math
 
 config = {
     'baud_rate' : 115200,
@@ -23,7 +24,7 @@ pressed = 0
 threshold = 1000
 
 class Scope(object):
-    def __init__(self, ax, maxt=0.025, dt=0.00005):
+    def __init__(self, ax, maxt=200, dt=10):
         self.ax = ax
         self.dt = dt
         self.maxt = maxt
@@ -31,7 +32,8 @@ class Scope(object):
         self.ydata = [0]
         self.line = Line2D(self.tdata, self.ydata)
         self.ax.add_line(self.line)
-        self.ax.set_ylim(0, 4096)
+        # self.ax.set_ylim(0, 4096)
+        self.ax.set_ylim(0, 256)
         self.ax.set_xlim(0, self.maxt)
 
     def update(self, y):
@@ -81,18 +83,18 @@ def serial_worker():
     global temp
     global ch0_read, ch1_read
     global pressed
-    while (ser.read()!=b'}'):
-            pass
     while (1):
+        while (ser.read()!=b'}'):
+            pass
         temp = list(ser.read(7))
         ch0_read = int(temp[2]) + 256*int(temp[1])
         ch1_read = int(temp[5]) + 256*int(temp[4])
-        if (ch0_read < threshold and not pressed):
-            pressed = 1
-            press(' ')
-            print("pressed")
-        if (ch0_read > threshold and pressed):
-            pressed = 0
+        # if (ch0_read < threshold and not pressed):
+        #     pressed = 1
+        #     press(' ')
+        #     print("pressed")
+        # if (ch0_read > threshold and pressed):
+        #     pressed = 0
 
 if __name__=="__main__":
 
@@ -102,12 +104,12 @@ if __name__=="__main__":
         else:
             raise Exception("COM Port not provided\nProvide COM port like \'python {} /dev/ttyUSB0\'".format(sys.argv[0]))
 
-        serial_init()
+        # serial_init()
 
         # Starting serial worker thread
-        serial_thread = threading.Thread(target = serial_worker)
-        serial_thread.setName('serial_worker')
-        serial_thread.start()
+        # serial_thread = threading.Thread(target = serial_worker)
+        # serial_thread.setName('serial_worker')
+        # serial_thread.start()
 
         ani = animation.FuncAnimation(fig, scope.update, emitter, interval=100,blit=True)
 

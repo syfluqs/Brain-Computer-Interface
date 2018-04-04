@@ -2,10 +2,11 @@ import numpy as np
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from scipy.interpolate import spline
 
 
 class Scope(object):
-    def __init__(self, ax, maxt=2, dt=0.02):
+    def __init__(self, ax, maxt=200, dt=1):
         self.ax = ax
         self.dt = dt
         self.maxt = maxt
@@ -48,7 +49,7 @@ fig, ax = plt.subplots()
 scope = Scope(ax)
 
 # pass a generator in "emitter" to produce data for the update func
-ani = animation.FuncAnimation(fig, scope.update, emitter, interval=10,
+ani = animation.FuncAnimation(fig, scope.update, emitter, interval=100,
                               blit=True)
 
 
