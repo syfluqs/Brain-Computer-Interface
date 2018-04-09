@@ -228,7 +228,7 @@ class neural_net_keras:
         self.model.evaluate(x_arr,y_arr,batch_size=batch_size)
 
     def predict(self,x_arr,batch_size=1):
-        prediction = self.model.predict(x_arr,batch_size)
+        prediction = self.model.predict(np.array(x_arr,"float32"),batch_size)
         return [x for x in prediction]
 
     def load_training_data(self):
