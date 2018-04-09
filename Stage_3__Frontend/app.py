@@ -31,6 +31,8 @@ config = {
     'baud_rate' : 9600,
     'sample_time_period' : 10, # in ms
     'dip_detect': False,
+    'ch0_dip_enabled': True,
+    'ch1_dip_enabled': True,
     'ch0_dip_threshold': 1000,
     'ch1_dip_threshold': 1000,
     'x_window' : 1000,
@@ -56,20 +58,35 @@ config = {
 }
 
 # Globals and pre-init
+
+# Parser for command line arguments
 parser = argparse.ArgumentParser(description=config['app_description'])
+
+# serial object for communication with stage 2 module over UARt
 serial_obj = None
+
+# specify figure plotting size in inches
 fig = plt.figure(figsize=(18, 3))
-# three plot, sch0, ch1 and fft
+
+# subplot for ch0 data
 ax_ch0 = plt.subplot2grid((2,2),(0,0))
 ax_ch0.set_xlim([0,config['x_window']])
 ax_ch0.set_ylim([0,4095])
+
+# subplot for ch1 data
 ax_ch1 = plt.subplot2grid((2,2),(1,0))
 ax_ch1.set_xlim([0,config['x_window']])
 ax_ch1.set_ylim([0,4095])
+
+# subplot for feature set (output from feature extractor)
 ax_fft = plt.subplot2grid((2,2),(0,1))
+
+# subplot for neural net output
 ax_nn = plt.subplot2grid((2,2),(1,1))
 ax_nn.set_xlim([0,config['x_window']])
 ax_nn.set_ylim([0,3.5])
+
+# adjust figure boundaries based on selected feature extractor
 if config['feat_method']=='psd':
     ax_fft.set_ylim([-2,5])
     ax_fft.set_xlim([0,300])
@@ -78,6 +95,8 @@ elif config['feat_method']=='dwt':
     ax_fft.set_xlim([0,30])
 else:
     raise KeyError("invalid feat method")
+
+# set plot line styles
 ch0_line, = ax_ch0.plot([],[], linewidth=0.5, color="k", label=config['ch0_label'])
 ch1_line, = ax_ch1.plot([],[], linewidth=0.5, color="k", label=config['ch1_label'])
 ch0_line_gaussed, = ax_ch0.plot([],[], linewidth=2, color="r", label=config['ch0_gaussed_label'])
@@ -86,18 +105,31 @@ ch0_fft_line, = ax_fft.plot([],[], linewidth=0.75, color="g", label='ch0 feat')
 ch1_fft_line, = ax_fft.plot([],[], linewidth=0.75, color="b", label='ch1 feat')
 ch0_nn_line, = ax_nn.plot([],[], linewidth=2, color="g", label='ch0 out')
 ch1_nn_line, = ax_nn.plot([],[], linewidth=2, color="b", label='ch1 out')
+
 # called after all axes are added
+# figure will fill the entire window and leave minimal margin
 fig.tight_layout()
 # plt.legend()
+
+# Keyboard controller object used to send keystrokes during dip detection
+# dip detection is used to detect sudden dips in signal due to artifacts like blinking
 kboard = keyboard.Controller()
 paused = False
+
+# plot animator object
 anim = None
+
+# feature extractor output lists
 feat0 = None
 feat1 = None
+
+# some internal control variables
 new_feature = True
 nn_active = False
 nn_train = False
 input_counter = 0
+
+# initialise neural net model based on selected feature extractor
 if config['feat_method']=='psd':
     PSD.n = config['psd_feature_size']  # number of elements in feature-vector
     nn0 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch0_psd',(config['psd_feature_size']*3,100,25,2))
@@ -108,6 +140,7 @@ elif config['feat_method']=='dwt':
 else:
     raise KeyError("invalid feat method")
 
+# dip detection control variables
 ch0_dipped = 0
 ch1_dipped = 0
 
@@ -118,7 +151,6 @@ x_list = deque(np.arange(config['x_window'],0,-1))
 x_list_np = np.array(x_list)
 nn0_out = deque([-1]*config['x_window'])
 nn1_out = deque([-1]*config['x_window'])
-
 
 
 def check_args():
@@ -138,6 +170,7 @@ def check_args():
     config['sample_time_period'] = args.sample_time
     return args
 
+
 def serial_init():
     ''' Initialise serial communication and negotiate sampling time period
     '''
@@ -155,6 +188,7 @@ def serial_init():
         logging.debug('Error opening serial port')
         serial_obj = None
 
+
 def serial_worker():
     ''' A separately threaded function which reads from serial port and fills the 
         deque
@@ -167,6 +201,7 @@ def serial_worker():
     if serial_obj!=None:
         while (1):
             if not paused:
+                # wait for one stray packet to end
                 while (serial_obj.read()!=b';'):
                     pass
                 read_data = serial_obj.read(8)
@@ -179,10 +214,14 @@ def serial_worker():
                 ch1_val = int(read_data[4:8])
                 # print(ch0_val, ch1_val)
                 # print(ch0_val,ch1_val)
+                
+                # adding to data queue
                 ch0_list.pop()
                 ch1_list.pop()
                 ch0_list.appendleft(ch0_val)
                 ch1_list.appendleft(ch1_val)
+
+                # start neural net data recording only when data fills x-window completely
                 if input_counter==config['x_window']-1:
                     logging.debug(color.cyan("Starting neural net"))
                 if input_counter<config['x_window']:
@@ -302,14 +341,17 @@ def neural_net_worker():
     global new_feature, nn_train, input_counter
     global x_list, ch0_nn_line, ch1_nn_line
     while (1):
+        # start neural net only when x-window is completely filled
         if new_feature and (not paused) and input_counter==config['x_window']:
-            nn0_out.pop()
-            nn1_out.pop()
             # n0__ = o0[1]+2*o0[0]
             # n1__ = o1[1]+2*o1[0]
+            # decode one-hot data to integer
             n0__ = reduce(lambda val,x: val+(x[0]+1)*x[1], enumerate(nn0.predict(feat0)), 0)
             n1__ = reduce(lambda val,x: val+(x[0]+1)*x[1], enumerate(nn0.predict(feat1)), 0)
             print(n0__,n1__)
+            # adding neural net output data to the end of queue
+            nn0_out.pop()
+            nn1_out.pop()
             nn0_out.appendleft(n0__)
             nn1_out.appendleft(n1__)
             new_feature = False
@@ -326,18 +368,17 @@ def neural_net_worker():
             pass
 
 def key_listener_worker():
-    # plt.show()
     # Engage Keyboard listener
     with keyboard.Listener(on_press=key_press_callback, on_release=key_release_callback) as listener:
         listener.join()
 
 def dip_down_callback(stat):
-    if (stat==0):
+    if (stat==0) and config['ch0_dip_enabled']:
         # Dip in channel 0
-        # kboard.press(keyboard.Key.space)
-        # kboard.release(keyboard.Key.space)
+        kboard.press(keyboard.Key.space)
+        kboard.release(keyboard.Key.space)
         pass
-    elif (stat==1):
+    elif (stat==1) and config['ch1_dip_enabled']:
         # Dip in channel 1
         kboard.press(keyboard.Key.space)
         kboard.release(keyboard.Key.space)
@@ -357,23 +398,28 @@ def key_release_callback(key):
             # anim.event_source.start()
             logging.debug("Plotting resumed")
     elif key==keyboard.KeyCode.from_char('+'):
+        # increase sigma for gaussian filter
         config['ch0_gauss_filter_sigma'] += config['sigma_delta']
         config['ch1_gauss_filter_sigma'] += config['sigma_delta']
         logging.debug('Increased sigma to {}'.format(config['ch0_gauss_filter_sigma']))
     elif key==keyboard.KeyCode.from_char('-'):
+        # decrease sigma for gaussian filter
         if config['ch0_gauss_filter_sigma']>config['sigma_delta']:
             config['ch0_gauss_filter_sigma'] -= config['sigma_delta']
             config['ch1_gauss_filter_sigma'] -= config['sigma_delta']
             logging.debug('Decreased sigma to {}'.format(config['ch0_gauss_filter_sigma']))
     elif key==keyboard.Key.f2:
+        # toggle dip detection on the fly
         logging.debug(color.yellow("Toggling dip detection"))
         config['dip_detect'] = not config['dip_detect']
     elif key==keyboard.Key.f8:
+        # add current x-window to training set data
         logging.debug(color.blue("Adding to training set"))
         nn0.add_to_training_data(feat0,config['nn_current_train_label'])
         nn1.add_to_training_data(feat1,config['nn_current_train_label'])
         logging.debug(color.blue("Done..."))
     elif key==keyboard.Key.home:
+        # write back complete training set data
         logging.debug(color.blue("Writing back training set"))
         nn0.write_back_training_data()
         nn1.write_back_training_data()
