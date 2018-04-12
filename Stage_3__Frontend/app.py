@@ -24,6 +24,8 @@ import PSD
 import DWT
 import neural_net
 
+from functools import reduce
+
 # Configuration Dictionary
 # Values can be overriden by using command-line arguements
 config = {
@@ -41,14 +43,16 @@ config = {
     'ch1_gauss_filter_sigma' : 2,
     'sigma_delta' : 0.5,
 
-    'feat_method' : 'dwt',
+    'feat_method' : 'psd',
 
-    'nn_activate' : False,
+    'nn_activate' : True,
     'nn_single_input': True,
-    'nn_cluster_name' : 'c1',
-    'nn_learning_rate' : 10,
-    'nn_learning_reps' : 100,
-    'nn_current_train_label' : np.array([0,1]),
+    'nn_cluster_name' : 'people1',
+    'nn_learning_rate' : 0.01,
+    'nn_learning_epochs' : 1000,
+    'nn_training_batch_size' : 1,
+    'nn_evaluating_batch_size' : 1,
+    'nn_current_train_label' : np.array([0,1,0,0]),
 
     'ch0_label' : 'ch0',
     'ch1_label' : 'ch1',
@@ -84,7 +88,7 @@ ax_fft = plt.subplot2grid((2,2),(0,1))
 # subplot for neural net output
 ax_nn = plt.subplot2grid((2,2),(1,1))
 ax_nn.set_xlim([0,config['x_window']])
-ax_nn.set_ylim([0,3.5])
+ax_nn.set_ylim([0,10])
 
 # adjust figure boundaries based on selected feature extractor
 if config['feat_method']=='psd':
@@ -129,14 +133,16 @@ nn_active = False
 nn_train = False
 input_counter = 0
 
+nn0=None
+nn1=None
 # initialise neural net model based on selected feature extractor
 if config['feat_method']=='psd':
     PSD.n = config['psd_feature_size']  # number of elements in feature-vector
-    nn0 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch0_psd',(config['psd_feature_size']*3,100,25,2))
-    nn1 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch1_psd',(config['psd_feature_size']*3,100,25,2))
+    nn0 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch0_psd',(config['psd_feature_size']*3,500,150,config['nn_current_train_label'].shape[0]))
+    nn1 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch1_psd',(config['psd_feature_size']*3,500,150,config['nn_current_train_label'].shape[0]))
 elif config['feat_method']=='dwt':
-    nn0 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch0_dwt',(30,25,10,2))
-    nn1 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch1_dwt',(30,25,10,2))
+    nn0 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch0_dwt',(300,500,100,config['nn_current_train_label'].shape[0]))
+    nn1 = neural_net.neural_net_keras(config['nn_cluster_name']+'_ch1_dwt',(300,500,100,config['nn_current_train_label'].shape[0]))
 else:
     raise KeyError("invalid feat method")
 
@@ -160,6 +166,7 @@ def check_args():
     parser.add_argument('-b','--baud-rate', help="Baud rate for serial communication. (default=%d)"%(config['baud_rate']),default=config['baud_rate'],nargs=1,metavar=('baud'))
     parser.add_argument('-p','--port', help="COM port to use for serial communication. (default=%s)"%(config['com_port']),default=config['com_port'],nargs=1,metavar=('port'))
     parser.add_argument('-t','--sample-time', help="Time period (in ms) for sample acquisition by ADC. (default=%d)"%(config['sample_time_period']),default=config['sample_time_period'],nargs=1,metavar=('time'))
+    parser.add_argument('--train', help="Operate module in training mode only", action='store_const', const=True, default=False)
     parser._optionals.title = 'Arguments'
     # start parsing arguments
     args = parser.parse_args()
@@ -187,7 +194,6 @@ def serial_init():
     except:
         logging.debug('Error opening serial port')
         serial_obj = None
-
 
 def serial_worker():
     ''' A separately threaded function which reads from serial port and fills the 
@@ -223,7 +229,7 @@ def serial_worker():
 
                 # start neural net data recording only when data fills x-window completely
                 if input_counter==config['x_window']-1:
-                    logging.debug(color.cyan("Starting neural net"))
+                    logging.debug(color.cyan("x-window full"))
                 if input_counter<config['x_window']:
                     input_counter += 1
                 # Detect signal going down towards dip
@@ -346,9 +352,11 @@ def neural_net_worker():
             # n0__ = o0[1]+2*o0[0]
             # n1__ = o1[1]+2*o1[0]
             # decode one-hot data to integer
-            n0__ = reduce(lambda val,x: val+(x[0]+1)*x[1], enumerate(nn0.predict(feat0)), 0)
-            n1__ = reduce(lambda val,x: val+(x[0]+1)*x[1], enumerate(nn0.predict(feat1)), 0)
-            print(n0__,n1__)
+            n0_p = nn0.predict([feat0])[0].tolist()
+            n1_p = nn1.predict([feat1])[0].tolist()
+            n0__ = reduce(lambda val,x: val+(x[0]+1)*x[1], enumerate(n0_p), 0)
+            n1__ = reduce(lambda val,x: val+(x[0]+1)*x[1], enumerate(n1_p), 0)
+            print(n0__,n0_p)
             # adding neural net output data to the end of queue
             nn0_out.pop()
             nn1_out.pop()
@@ -424,6 +432,21 @@ def key_release_callback(key):
         nn0.write_back_training_data()
         nn1.write_back_training_data()
         logging.debug(color.blue("Done..."))
+    elif key==keyboard.Key.end:
+        # application graceful exit 
+        if len(nn0.training_data_x):
+            nn0.write_back_training_data()
+            logging.debug(color.green("nn0 writeback done..."))
+        if len(nn1.training_data_x):
+            nn1.write_back_training_data()
+            logging.debug(color.green("nn1 writeback done..."))
+        if serial_obj!=None:
+            serial_obj.close()
+            logging.debug(color.green("serial port closed..."))
+        plt.close()
+        logging.debug(color.green("plot object de-instantiated..."))
+        logging.debug(color.green("Exiting application"))
+        sys.exit(0)
 
 
 if __name__ == '__main__':
@@ -434,6 +457,19 @@ if __name__ == '__main__':
         # check command line arguments passed
         args = check_args()
         logging.debug("Arguments = "+color.bold(color.green(str(args))))
+        
+        if args.train:
+            logging.debug(color.green("Starting training process..."))
+            # training
+            nn0.train(epochs=1000,batch_size=config['nn_training_batch_size'])
+            # nn1.train(epochs=1000,batch_size=config['nn_training_batch_size'])
+            nn1.train(epochs=10,batch_size=10)
+            # evaluating
+            nn0.evaluate(batch_size=config['nn_evaluating_batch_size'])
+            # nn1.evaluate(batch_size=config['nn_evaluating_batch_size'])
+            nn1.evaluate(batch_size=10)
+            logging.debug(color.green("Training process complete"))
+            sys.exit(0)
 
         # Initialise serial communication
         serial_init()

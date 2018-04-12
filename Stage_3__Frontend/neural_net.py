@@ -213,11 +213,11 @@ class neural_net_keras:
 
     def train(self, batch_size=1, epochs=5):
         x_train, y_train = self.load_training_data()
-        self.model.fit(np.array(x_train,"float32"), np.array(y_train,"float32"), nb_epoch=epochs, batch_size=batch_size, verbose=2)
+        self.model.fit(np.array(x_train,"float32"), np.array(y_train,"float32"), epochs=epochs, batch_size=batch_size, verbose=2)
         self.model.save('data/%s.h5'%(self.cluster))
 
     def train_from_arr(self, x_arr, y_arr, batch_size=None, epochs=5):
-        self.model.fit(x_arr, y_arr, nb_epoch=epochs, batch_size=batch_size, verbose=2)
+        self.model.fit(x_arr, y_arr, epochs=epochs, batch_size=batch_size, verbose=2)
         self.model.save('data/%s.h5'%(self.cluster))
 
     def evaluate(self, batch_size=1):
