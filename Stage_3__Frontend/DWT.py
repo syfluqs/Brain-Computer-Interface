@@ -19,11 +19,11 @@ from scipy.stats import kurtosis
 def comp_moment(feature):
     '''this function computes the moments like mean, standard deviation 
     and kutosis of the obtained feature vector''' 
-    step = int(len(feature)/2)
+    step = int(len(feature)/20)
     # variables to be used inside loops
-    avg_temp = np.zeros([2])
-    stn_dev_temp = np.zeros([2])
-    kurto_temp = np.zeros([2])
+    avg_temp = np.zeros([20])
+    stn_dev_temp = np.zeros([20])
+    kurto_temp = np.zeros([20])
     for i in range(int(len(feature)/step)):  
         avg_temp[i] = np.mean(feature[step*i:step*(i+1)])
         stn_dev_temp[i] = statistics.stdev(feature[step*i:step*(i+1)]) 
