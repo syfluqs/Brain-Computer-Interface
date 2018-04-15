@@ -185,7 +185,7 @@ class neural_net_tf_dnn:
 
 class neural_net_keras:
 
-    def __init__(self,cluster,layer_sizes,learning_rate=0.01):
+    def __init__(self,cluster,layer_sizes,learning_rate=0.001):
         self.cluster = cluster
         self.layer_sizes = layer_sizes
         self.learning_rate = learning_rate

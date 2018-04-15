@@ -24,7 +24,7 @@ def comp_moment(feature):
     avg_temp = np.zeros([20])
     stn_dev_temp = np.zeros([20])
     kurto_temp = np.zeros([20])
-    for i in range(int(len(feature)/step)):  
+    for i in range(int(len(feature)/step)-1):  
         avg_temp[i] = np.mean(feature[step*i:step*(i+1)])
         stn_dev_temp[i] = statistics.stdev(feature[step*i:step*(i+1)]) 
         kurto_temp[i] = kurtosis(feature[step*i:step*(i+1)])
